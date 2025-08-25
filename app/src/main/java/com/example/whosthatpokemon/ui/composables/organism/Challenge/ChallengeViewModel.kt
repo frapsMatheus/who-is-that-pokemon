@@ -1,23 +1,28 @@
 package com.example.whosthatpokemon.ui.composables.organism.Challenge
 
-import androidx.compose.ui.text.toLowerCase
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.whosthatpokemon.data.dao.ScoreDAO
 import com.example.whosthatpokemon.data.model.Generation
 import com.example.whosthatpokemon.data.model.Pokemon
+import com.example.whosthatpokemon.data.model.Score
 import com.example.whosthatpokemon.data.repository.PokemonRepository
 import com.example.whosthatpokemon.ui.composables.atoms.Difficulty
 import com.example.whosthatpokemon.ui.navigation.Challenge
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class ChallengeViewModel @Inject constructor(
     private val pokemonRepository: PokemonRepository,
+    private val scoreDAO: ScoreDAO,
     savedStateHandle: SavedStateHandle,
 ): ViewModel() {
     private val generationId: Int = checkNotNull(savedStateHandle[Challenge.generationArg])
@@ -26,20 +31,32 @@ class ChallengeViewModel @Inject constructor(
     val loading = _loading.asStateFlow()
     private val _currentPokemon = MutableStateFlow<Pokemon?>(null)
     val currentPokemon = _currentPokemon.asStateFlow()
-    private val _currentDifficulty = MutableStateFlow<Difficulty>(Difficulty.HARD)
+    private val _currentDifficulty = MutableStateFlow(Difficulty.HARD)
     val currentDifficulty = _currentDifficulty.asStateFlow()
-    val _totalPokemons = MutableStateFlow(0)
-    val totalPokemons = _totalPokemons.asStateFlow()
-
-    val _totalCorrect = MutableStateFlow(0)
-    val totalCorrect = _totalCorrect.asStateFlow()
 
     private val _inputText = MutableStateFlow("")
     val inputText = _inputText.asStateFlow()
+
     private var currentGeneration: Generation? = null
+    private val _score = scoreDAO.getScoreByGenerationFlow(generationId)
+
+    private val _totalPokemons = MutableStateFlow(0)
+    val totalPokemons = _totalPokemons.asStateFlow()
+    private val _totalCorrect = MutableStateFlow(0)
+    val totalCorrect = _totalCorrect.asStateFlow()
+    var score = Score(0)
 
     init {
-        getNextChallenge()
+        viewModelScope.launch {
+            getNextChallenge()
+            _score.collect { it ->
+                if (it != null) {
+                    score = it
+                    _totalPokemons.value = it.pokemons
+                    _totalCorrect.value = it.scoreHard + it.scoreMedium + it.scoreEasy
+                }
+            }
+        }
     }
 
     fun updateInputText(newText: String) {
@@ -48,10 +65,24 @@ class ChallengeViewModel @Inject constructor(
         }
     }
 
+    fun updateScore(difficulty: Difficulty, success: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.Default) {
+                val newScore = Score(generationId,
+                    score.pokemons + 1,
+                    scoreHard = score.scoreHard + (if (difficulty == Difficulty.HARD && success) 1 else 0),
+                    scoreMedium = score.scoreMedium + (if (difficulty == Difficulty.MEDIUM && success) 1 else 0),
+                    scoreEasy = score.scoreEasy + (if (difficulty == Difficulty.EASY && success) 1 else 0)
+                )
+                scoreDAO.upsertScore(newScore)
+            }
+        }
+    }
+
     fun changeDifficulty() {
         viewModelScope.launch {
             if (_currentDifficulty.value === Difficulty.EASY) {
-                _totalPokemons.value++
+                updateScore(_currentDifficulty.value, false)
                 getNextChallenge()
             }
             _currentDifficulty.emit(when (_currentDifficulty.value) {
@@ -64,8 +95,7 @@ class ChallengeViewModel @Inject constructor(
 
     fun checkAnswer() {
         if (_inputText.value.equals(_currentPokemon.value!!.name, ignoreCase = true)) {
-            _totalCorrect.value++
-            _totalPokemons.value++
+            updateScore(_currentDifficulty.value, true)
             getNextChallenge()
         } else {
             changeDifficulty()

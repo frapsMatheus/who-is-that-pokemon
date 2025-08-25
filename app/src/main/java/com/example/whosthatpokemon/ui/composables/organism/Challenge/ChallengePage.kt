@@ -85,7 +85,7 @@ fun ChallengePage(viewModel: ChallengeViewModel, modifier: Modifier = Modifier) 
                 }
                 Column (modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     PokemonCard(currentPokemon, currentDifficulty)
-                    Text(text = "Who's that Pokemon???",
+                    Text(text = "Who's that Pokémon?",
                         color = GOLD,
                         style = MaterialTheme.typography.titleLarge,
                         modifier = modifier.padding(top = 16.dp))
