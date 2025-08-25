@@ -19,7 +19,8 @@ This app is built using the recommended, modern Android development tools and li
 - **[Hilt](https://developer.android.com/training/dependency-injection/hilt-android)** – Dependency Injection framework  
 - **[Retrofit](https://square.github.io/retrofit/)** – HTTP client for API requests  
 - **[Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html)** – Asynchronous programming  
-- **[Kotlin Flow](https://kotlinlang.org/docs/flow.html)** – Reactive streams  
+- **[Kotlin Flow](https://kotlinlang.org/docs/flow.html)** – Reactive streams
+- **[Room Database](https://developer.android.com/training/data-storage/room)** – Room persistence library  
 
 ---
 
